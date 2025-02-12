@@ -1,7 +1,7 @@
 ﻿  main.cpp
+C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(417,20): warning C4244: "inicjowanie": konwersja z "double" do "float", możliwa utrata danych
 C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(435,55): warning C4244: "argument": konwersja z "double" do "float", możliwa utrata danych
-C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(512,20): warning C4244: "inicjowanie": konwersja z "double" do "float", możliwa utrata danych
-C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(559,57): warning C4267: "argument": konwersja z "size_t" do "GLsizei", możliwa utrata danych
-C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(663,57): warning C4267: "argument": konwersja z "size_t" do "GLsizei", możliwa utrata danych
-C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(262,1): warning C4715: "initialize”: niewszystkie ścieżki kodu zwracają wartość
+C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(514,53): warning C4267: "argument": konwersja z "size_t" do "GLsizei", możliwa utrata danych
+C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(608,53): warning C4267: "argument": konwersja z "size_t" do "GLsizei", możliwa utrata danych
+C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp(263,1): warning C4715: "initialize”: niewszystkie ścieżki kodu zwracają wartość
   gk_4.vcxproj -> C:\Users\andrz\source\repos\gk_4\x64\Debug\gk_4.exe

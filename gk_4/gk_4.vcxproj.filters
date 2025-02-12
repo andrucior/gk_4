@@ -132,16 +132,16 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="D:\andrz\Downloads\brick.png">
+    <Image Include="brick.png">
       <Filter>Resources\Textures</Filter>
     </Image>
     <Image Include="D:\andrz\Downloads\wood_texture.jpg">
       <Filter>Resources\Textures</Filter>
     </Image>
-    <Image Include="D:\andrz\Downloads\wood_texture.png">
+    <Image Include="wood_texture.png">
       <Filter>Resources\Textures</Filter>
     </Image>
-    <Image Include="D:\andrz\Downloads\shrek.png">
+    <Image Include="shrek.png">
       <Filter>Resources\Textures</Filter>
     </Image>
   </ItemGroup>

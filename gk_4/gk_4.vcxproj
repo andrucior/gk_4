@@ -180,10 +180,10 @@
     <None Include="mirror.vert" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="D:\andrz\Downloads\brick.png" />
-    <Image Include="D:\andrz\Downloads\shrek.png" />
+    <Image Include="brick.png" />
+    <Image Include="shrek.png" />
     <Image Include="D:\andrz\Downloads\wood_texture.jpg" />
-    <Image Include="D:\andrz\Downloads\wood_texture.png" />
+    <Image Include="wood_texture.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
