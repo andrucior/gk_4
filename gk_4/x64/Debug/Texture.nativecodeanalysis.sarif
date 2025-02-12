@@ -1,0 +1,75 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json",
+  "runs": [
+    {
+      "results": [],
+      "tool": {
+        "driver": {
+          "name": "PREfast",
+          "fullName": "PREfast Code Analysis",
+          "version": "14.39.33521.0",
+          "informationUri": "https://aka.ms/cpp/ca"
+        }
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true
+        }
+      ],
+      "artifacts": [
+        {
+          "location": {
+            "uri": "file:///c:/users/andrz/source/repos/gk_4/gk_4/texture.cpp"
+          },
+          "roles": [
+            "analysisTarget"
+          ],
+          "hashes": {
+            "sha-256": "83eed4d0518ee4d704ca2e78ef47cd45be739d977f64426491d6bcd3fb1556ce"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///c:/users/andrz/source/repos/gk_4/gk_4/texture.h"
+          },
+          "hashes": {
+            "sha-256": "840756514bf259f9a6ae4c0a380268844ec6b6c9f159e06745b8bfe6718150de"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///c:/users/andrz/source/repos/gk_4/gk_4/libraries/include/glad/glad.h"
+          },
+          "hashes": {
+            "sha-256": "0d8ce329e2b52e4b450d8d1f916d1b5bc01f344db8ea087ba19c850b0d19b8cd"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///c:/users/andrz/source/repos/gk_4/gk_4/libraries/include/khr/khrplatform.h"
+          },
+          "hashes": {
+            "sha-256": "7b1e01aaa7ad8f6fc34b5c7bdf79ebf5189bb09e2c4d2e79fc5d350623d11e83"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///c:/users/andrz/source/repos/gk_4/gk_4/libraries/include/stb/stb_image.h"
+          },
+          "hashes": {
+            "sha-256": "571efeb90304ac83876572359a291b7df71f9c95752c5a734224198fee82368c"
+          }
+        },
+        {
+          "location": {
+            "uri": "file:///c:/users/andrz/source/repos/gk_4/gk_4/shader.h"
+          },
+          "hashes": {
+            "sha-256": "57e50e0bc9facdc36f3c1414599ba77f8768c109e81688d95a689c6b3ad46be1"
+          }
+        }
+      ]
+    }
+  ]
+}
