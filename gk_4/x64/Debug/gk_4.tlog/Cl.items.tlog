@@ -3,14 +3,11 @@ C:\Users\andrz\source\repos\gk_4\gk_4\EBO.cpp;C:\Users\andrz\source\repos\gk_4\g
 C:\Users\andrz\source\repos\gk_4\gk_4\glad.c;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\glad.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\LightSource.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\LightSource.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\main.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\main.obj
-C:\Users\andrz\source\repos\gk_4\gk_4\Matrix4.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\Matrix4.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\Model.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\Model.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\Object.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\Object.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\Program.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\Program.obj
-C:\Users\andrz\source\repos\gk_4\gk_4\RenderedObject.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\RenderedObject.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\Shader.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\Shader.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\stb.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\stb.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\Texture.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\Texture.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\VAO.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\VAO.obj
 C:\Users\andrz\source\repos\gk_4\gk_4\VBO.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\VBO.obj
-C:\Users\andrz\source\repos\gk_4\gk_4\Vector3.cpp;C:\Users\andrz\source\repos\gk_4\gk_4\x64\Debug\Vector3.obj

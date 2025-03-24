@@ -1,12 +1,19 @@
-#define M_PI           3.14159265358979323846
+#define M_PI 3.14159265358979323846
+
 #include <iostream>
+#include <fstream>
+#include <vector>
+#include <tuple>
+#include <cmath>
+#include <cstddef>
+#include <list>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stb/stb_image.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <vector>
 
 #include "Texture.h"
 #include "Shader.h"
@@ -18,116 +25,71 @@
 #include "Object.h"
 #include "Program.h"
 
+// Function prototypes
+void Cleanup(Object& pyramid, Object& cube, Object& floor, Object& sphere, Object& lightCube,
+    Texture& brickTex, Texture& sphereTex, Texture& floorTex,
+    Shader& shaderProgram, Shader& lightShader, Shader& mirrorShader, GLFWwindow* window);
 
-// --- Utility: Sphere Generation Function ---
 void generateSphere(float radius, unsigned int sectorCount, unsigned int stackCount,
-    std::vector<float>& vertices, std::vector<unsigned int>& indices)
-{
-    vertices.clear();
-    indices.clear();
+    std::vector<float>& vertices, std::vector<unsigned int>& indices);
+void HandleSpotlightChange(GLFWwindow* window, LightSource& spotLight);
 
-    float x, y, z, xy;      // vertex position
-    float nx, ny, nz, lengthInv = 1.0f / radius;  // normal
-    float s, t;             // texture coordinate
+std::tuple<Texture, Texture, Texture, Texture> SetupTextures(Shader& shaderProgram);
 
-    float sectorStep = 2 * glm::pi<float>() / sectorCount;
-    float stackStep = glm::pi<float>() / stackCount;
-    float sectorAngle, stackAngle;
+std::tuple<LightSource, LightSource, LightSource> SetupLightSources(Shader& shaderProgram);
 
-    for (unsigned int i = 0; i <= stackCount; ++i)
-    {
-        stackAngle = glm::pi<float>() / 2 - i * stackStep; // from pi/2 to -pi/2
-        xy = radius * cosf(stackAngle);
-        z = radius * sinf(stackAngle);
+void SetFogUniforms(Shader& shaderProgram, float time, Camera camera, LightSource spotLight);
 
-        for (unsigned int j = 0; j <= sectorCount; ++j)
-        {
-            sectorAngle = j * sectorStep;
-            x = xy * cosf(sectorAngle);
-            y = xy * sinf(sectorAngle);
-            // Position
-            vertices.push_back(x);
-            vertices.push_back(y);
-            vertices.push_back(z);
-            // Color (white for now)
-            vertices.push_back(1.0f);
-            vertices.push_back(1.0f);
-            vertices.push_back(1.0f);
-            // Texture coordinates
-            s = (float)j / sectorCount;
-            t = (float)i / stackCount;
-            vertices.push_back(s);
-            vertices.push_back(t);
-            // Normal (normalized position)
-            nx = x * lengthInv;
-            ny = y * lengthInv;
-            nz = z * lengthInv;
-            vertices.push_back(nx);
-            vertices.push_back(ny);
-            vertices.push_back(nz);
-        }
-    }
+template <size_t VSize, size_t ISize>
+std::tuple<Object, VAO> SetupObject(GLfloat(&vertices)[VSize], GLuint(&indices)[ISize]);
 
-    // Build indices.
-    unsigned int k1, k2;
-    for (unsigned int i = 0; i < stackCount; ++i)
-    {
-        k1 = i * (sectorCount + 1);
-        k2 = k1 + sectorCount + 1;
-        for (unsigned int j = 0; j < sectorCount; ++j, ++k1, ++k2)
-        {
-            if (i != 0)
-            {
-                indices.push_back(k1);
-                indices.push_back(k2);
-                indices.push_back(k1 + 1);
-            }
-            if (i != (stackCount - 1))
-            {
-                indices.push_back(k1 + 1);
-                indices.push_back(k2);
-                indices.push_back(k2 + 1);
-            }
-        }
-    }
-}
+template <size_t VSize>
+std::tuple<Object, VAO> SetupObject(GLfloat(&vertices)[VSize]);
 
-// --- Geometry Data --- //
+std::tuple<Object, VAO> SetupSphere(std::vector<float>& sphereVerts, std::vector<unsigned int>& sphereInds);
 
-// Pyramid vertices (11 floats per vertex: position, color, texCoord, normal)
-GLfloat pyramidVertices[] =
-{ //  POSITION             COLOR              TexCoord         NORMAL
-    -0.5f, 0.0f,  0.5f,      0.83f,0.70f,0.44f,   0.0f, 0.0f,      0.0f, -1.0f, 0.0f,
-    -0.5f, 0.0f, -0.5f,      0.83f,0.70f,0.44f,   0.0f, 5.0f,      0.0f, -1.0f, 0.0f,
-     0.5f, 0.0f, -0.5f,      0.83f,0.70f,0.44f,   5.0f, 5.0f,      0.0f, -1.0f, 0.0f,
-     0.5f, 0.0f,  0.5f,      0.83f,0.70f,0.44f,   5.0f, 0.0f,      0.0f, -1.0f, 0.0f,
+std::tuple<GLuint, GLuint> SetupMirrorTexture();
 
-    -0.5f, 0.0f,  0.5f,      0.83f,0.70f,0.44f,   0.0f, 0.0f,     -0.8f, 0.5f,  0.0f,
-    -0.5f, 0.0f, -0.5f,      0.83f,0.70f,0.44f,   5.0f, 0.0f,     -0.8f, 0.5f,  0.0f,
-     0.0f, 0.8f,  0.0f,      0.92f,0.86f,0.76f,   2.5f, 5.0f,     -0.8f, 0.5f,  0.0f,
+void generateTorus(float innerRadius, float outerRadius, unsigned int nsides, unsigned int nrings,
+    std::vector<float>& vertices, std::vector<unsigned int>& indices);
 
-    -0.5f, 0.0f, -0.5f,      0.83f,0.70f,0.44f,   5.0f, 0.0f,      0.0f, 0.5f, -0.8f,
-     0.5f, 0.0f, -0.5f,      0.83f,0.70f,0.44f,   0.0f, 0.0f,      0.0f, 0.5f, -0.8f,
-     0.0f, 0.8f,  0.0f,      0.92f,0.86f,0.76f,   2.5f, 5.0f,      0.0f, 0.5f, -0.8f,
+std::tuple<Object, VAO> SetupTorus(std::vector<float>& torusVerts, std::vector<unsigned int>& torusInds);
 
-     0.5f, 0.0f, -0.5f,      0.83f,0.70f,0.44f,   0.0f, 0.0f,      0.8f, 0.5f,  0.0f,
-     0.5f, 0.0f,  0.5f,      0.83f,0.70f,0.44f,   5.0f, 0.0f,      0.8f, 0.5f,  0.0f,
-     0.0f, 0.8f,  0.0f,      0.92f,0.86f,0.76f,   2.5f, 5.0f,      0.8f, 0.5f,  0.0f,
+// --- Geometry Data ---
+// 
+// Pyramid: 11 floats per vertex (position, color, texCoord, normal)
+GLfloat pyramidVertices[] = {
+    // Positions           Colors             TexCoords    Normals
+    -0.5f, 0.0f,  0.5f,    0.83f,0.70f,0.44f,  0.0f, 0.0f,   0.0f, -1.0f, 0.0f,
+    -0.5f, 0.0f, -0.5f,    0.83f,0.70f,0.44f,  0.0f, 5.0f,   0.0f, -1.0f, 0.0f,
+     0.5f, 0.0f, -0.5f,    0.83f,0.70f,0.44f,  5.0f, 5.0f,   0.0f, -1.0f, 0.0f,
+     0.5f, 0.0f,  0.5f,    0.83f,0.70f,0.44f,  5.0f, 0.0f,   0.0f, -1.0f, 0.0f,
 
-     0.5f, 0.0f,  0.5f,      0.83f,0.70f,0.44f,   5.0f, 0.0f,      0.0f, 0.5f,  0.8f,
-    -0.5f, 0.0f,  0.5f,      0.83f,0.70f,0.44f,   0.0f, 0.0f,      0.0f, 0.5f,  0.8f,
-     0.0f, 0.8f,  0.0f,      0.92f,0.86f,0.76f,   2.5f, 5.0f,      0.0f, 0.5f,  0.8f
+    -0.5f, 0.0f,  0.5f,    0.83f,0.70f,0.44f,  0.0f, 0.0f,  -0.8f, 0.5f,  0.0f,
+    -0.5f, 0.0f, -0.5f,    0.83f,0.70f,0.44f,  5.0f, 0.0f,  -0.8f, 0.5f,  0.0f,
+     0.0f, 0.8f,  0.0f,    0.92f,0.86f,0.76f,  2.5f, 5.0f,  -0.8f, 0.5f,  0.0f,
+
+    -0.5f, 0.0f, -0.5f,    0.83f,0.70f,0.44f,  5.0f, 0.0f,   0.0f, 0.5f, -0.8f,
+     0.5f, 0.0f, -0.5f,    0.83f,0.70f,0.44f,  0.0f, 0.0f,   0.0f, 0.5f, -0.8f,
+     0.0f, 0.8f,  0.0f,    0.92f,0.86f,0.76f,  2.5f, 5.0f,   0.0f, 0.5f, -0.8f,
+
+     0.5f, 0.0f, -0.5f,    0.83f,0.70f,0.44f,  0.0f, 0.0f,   0.8f, 0.5f,  0.0f,
+     0.5f, 0.0f,  0.5f,    0.83f,0.70f,0.44f,  5.0f, 0.0f,   0.8f, 0.5f,  0.0f,
+     0.0f, 0.8f,  0.0f,    0.92f,0.86f,0.76f,  2.5f, 5.0f,   0.8f, 0.5f,  0.0f,
+
+     0.5f, 0.0f,  0.5f,    0.83f,0.70f,0.44f,  5.0f, 0.0f,   0.0f, 0.5f,  0.8f,
+    -0.5f, 0.0f,  0.5f,    0.83f,0.70f,0.44f,  0.0f, 0.0f,   0.0f, 0.5f,  0.8f,
+     0.0f, 0.8f,  0.0f,    0.92f,0.86f,0.76f,  2.5f, 5.0f,   0.0f, 0.5f,  0.8f
 };
-GLuint pyramidIndices[] =
-{
-    0, 1, 2,  0, 2, 3,
+GLuint pyramidIndices[] = {
+    0, 1, 2,   0, 2, 3,
     4, 6, 5,
     7, 9, 8,
     10, 12, 11,
     13, 15, 14
 };
 
-// Moving Cube (36 vertices; same layout as pyramid)
+// Cube vertices: 36 vertices with same layout as pyramid.
 GLfloat cubeVertices[] = {
     // Back face
     1.0f, -0.5f, -0.5f,  1,0,0,   0.0f, 0.0f,    0,0,-1,
@@ -173,20 +135,17 @@ GLfloat cubeVertices[] = {
     1.0f,  0.5f,  0.5f,  0,1,1,   0.0f, 0.0f,    0,1,0,
 };
 
-// Floor (a large quad with 11 floats per vertex)
+// Floor: a large quad (11 floats per vertex)
 GLfloat floorVertices[] = {
-    // positions              // colors       // texCoords   // normals
-    -10.0f, 0.0f,  10.0f,      1,1,1,         0.0f, 0.0f,   0.0f, 1.0f, 0.0f,
-     10.0f, 0.0f,  10.0f,      1,1,1,         1.0f, 0.0f,   0.0f, 1.0f, 0.0f,
-     10.0f, 0.0f, -10.0f,      1,1,1,         1.0f, 1.0f,   0.0f, 1.0f, 0.0f,
-    -10.0f, 0.0f, -10.0f,      1,1,1,         0.0f, 1.0f,   0.0f, 1.0f, 0.0f,
+    // Positions             Colors    TexCoords   Normals
+    -10.0f, 0.0f,  10.0f,     1,1,1,    0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+     10.0f, 0.0f,  10.0f,     1,1,1,    1.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+     10.0f, 0.0f, -10.0f,     1,1,1,    1.0f, 1.0f,  0.0f, 1.0f, 0.0f,
+    -10.0f, 0.0f, -10.0f,     1,1,1,    0.0f, 1.0f,  0.0f, 1.0f, 0.0f,
 };
-GLuint floorIndices[] = {
-    0,1,2,
-    0,2,3
-};
+GLuint floorIndices[] = { 0, 1, 2, 0, 2, 3 };
 
-// Light cube geometry (a small cube)
+// Light cube: a small cube.
 GLfloat lightVertices[] = {
     -0.1f, -0.1f,  0.1f,
     -0.1f, -0.1f, -0.1f,
@@ -198,71 +157,32 @@ GLfloat lightVertices[] = {
      0.1f,  0.1f,  0.1f
 };
 GLuint lightIndices[] = {
-    0,1,2,  0,2,3,
-    0,4,7,  0,7,3,
-    3,7,6,  3,6,2,
-    2,6,5,  2,5,1,
-    1,5,4,  1,4,0,
-    4,5,6,  4,6,7
+    0, 2, 1,  0, 3, 2,  // Bottom face
+    0, 7, 4,  0, 3, 7,  // Front face
+    3, 6, 7,  3, 2, 6,  // Right face
+    2, 5, 6,  2, 1, 5,  // Back face
+    1, 4, 5,  1, 0, 4,  // Left face
+    4, 6, 5,  4, 7, 6   // Top face
 };
 
+
+// Mirror
 GLfloat mirrorVertices[] = {
-    // positions            // colors   // texCoords  // normals
-    -1.0f, 0.0f, -3.0f,      1,1,1,     0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-     1.0f, 0.0f, -3.0f,      1,1,1,     1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-     1.0f, 2.0f, -3.0f,      1,1,1,     1.0f, 1.0f,  0.0f, 0.0f, 1.0f,
-    -1.0f, 2.0f, -3.0f,      1,1,1,     0.0f, 1.0f,  0.0f, 0.0f, 1.0f
+    // Positions             Colors   TexCoords    Normals
+    -1.0f, 0.0f, -3.0f,       1,1,1,   0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+     1.0f, 0.0f, -3.0f,       1,1,1,   1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+     1.0f, 2.0f, -3.0f,       1,1,1,   1.0f, 1.0f,  0.0f, 0.0f, 1.0f,
+    -1.0f, 2.0f, -3.0f,       1,1,1,   0.0f, 1.0f,  0.0f, 0.0f, 1.0f
 };
-GLuint mirrorIndices[] = {
-    0,1,2,
-    0,2,3
-};
-
-Object ObjectSetup(GLfloat vertices[])
-{
-    VAO ObjectVAO;
-    ObjectVAO.Bind();
-    VBO ObjectVBO(vertices, sizeof(vertices));
-    Object Obj(ObjectVAO, ObjectVBO);
-    Obj.LinkAttributes();
-    Obj.Unbind();
-    return Obj;
-}
-
-Object ObjectSetup(GLfloat vertices[], GLuint indices[])
-{
-    VAO ObjectVAO;
-    ObjectVAO.Bind();
-    VBO ObjectVBO(vertices, sizeof(vertices));
-    EBO ObjectEBO(indices, sizeof(indices));
-    Object Obj(ObjectVAO, ObjectVBO);
-    Obj.LinkAttributes();
-    Obj.SetEBO(ObjectEBO);
-    Obj.Unbind();
-    return Obj;
-}
+GLuint mirrorIndices[] = { 0, 1, 2, 0, 2, 3 };
 
 const unsigned int width = 800, height = 800;
 
-int initialize()
-{
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(width, height, "YoutubeOpenGL", NULL, NULL);
-    if (!window)
-    {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-    glfwMakeContextCurrent(window);
-    gladLoadGL();
-    glViewport(0, 0, width, height);
-}
 int main()
 {
+    // Toggle for specular model
+    static bool useBlinn = false;
+
     // Initialize GLFW and create window.
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -284,81 +204,349 @@ int main()
     Shader lightShader("light.vert", "light.frag");
     Shader mirrorShader("mirror.vert", "mirror.frag");
 
-    // --- Set Up VAOs, VBOs, EBOs --- //
-
+    // --- Set Up Geometry Objects ---
     // Pyramid
-    VAO pyramidVAO;
-    pyramidVAO.Bind();
-    VBO pyramidVBO(pyramidVertices, sizeof(pyramidVertices));
-    EBO pyramidEBO(pyramidIndices, sizeof(pyramidIndices));
-    Object pyramid(pyramidVAO, pyramidVBO);
-    pyramid.LinkAttributes();
-    pyramid.SetEBO(pyramidEBO);
-    pyramid.Unbind();
+    auto [pyramid, pyramidVAO] = SetupObject(pyramidVertices, pyramidIndices);
 
     // Moving Cube
-    VAO cubeVAO;
-    cubeVAO.Bind();
-    VBO cubeVBO(cubeVertices, sizeof(cubeVertices));
-    Object cube(cubeVAO, cubeVBO);
-    cube.LinkAttributes();
-    cube.Unbind();
+    auto [cube, cubeVAO] = SetupObject(cubeVertices);
 
     // Floor
-    VAO floorVAO;
-    floorVAO.Bind();
-    VBO floorVBO(floorVertices, sizeof(floorVertices));
-    EBO floorEBO(floorIndices, sizeof(floorIndices));
-    Object floor(floorVAO, floorVBO);
-    floor.LinkAttributes();
-    floor.Unbind();
+    auto [floor, floorVAO] = SetupObject(floorVertices, floorIndices);
 
     // Rotating Sphere
     std::vector<float> sphereVerts;
     std::vector<unsigned int> sphereInds;
-    generateSphere(0.5f, 36, 18, sphereVerts, sphereInds);
-    VAO sphereVAO;
-    sphereVAO.Bind();
-    VBO sphereVBO(sphereVerts.data(), sphereVerts.size() * sizeof(float));
-    EBO sphereEBO(sphereInds.data(), sphereInds.size() * sizeof(unsigned int));
-
-    Object sphere(sphereVAO, sphereVBO);
-    sphere.LinkAttributes();
-    sphere.Unbind();
+    auto [sphere, sphereVAO] = SetupSphere(sphereVerts, sphereInds);
 
     // Light Cube
-    VAO lightVAO;
-    lightVAO.Bind();
-    VBO lightVBO(lightVertices, sizeof(lightVertices));
-    EBO lightEBO(lightIndices, sizeof(lightIndices));
-    Object lightCube(lightVAO, lightVBO);
-    lightCube.Unbind();
+    auto [lightCube, lightVAO] = SetupObject(lightVertices, lightIndices);
 
     // Mirror
-    VAO mirrorVAO;
-    mirrorVAO.Bind();
-    VBO mirrorVBO(mirrorVertices, sizeof(mirrorVertices));
-    EBO mirrorEBO(mirrorIndices, sizeof(mirrorIndices));
+    auto [mirror, mirrorVAO] = SetupObject(mirrorVertices, mirrorIndices);
 
-    Object mirror(mirrorVAO, mirrorVBO);
-    mirror.LinkAttributes();
+    // Set Up Textures
+    auto [brickTex, floorTex, sphereTex, torrusTex] = SetupTextures(shaderProgram);
 
-    mirrorVAO.Unbind();
-    mirrorVBO.Unbind();
-    mirrorEBO.Unbind();
+    // Set Up Lights 
+    auto [fixedLight, spotLight, dirLight] = SetupLightSources(shaderProgram);
 
-    // --- Set Up Textures --- //
-    Texture brickTex("D:\\andrz\\Downloads\\brick.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGBA, GL_UNSIGNED_BYTE);
-    brickTex.texUnit(shaderProgram, "tex0", 0); 
+    // Create a texture and framebuffer for mirror reflection.
+    auto [reflectionTexture, reflectionFBO] = SetupMirrorTexture();
 
-    Texture floorTex("D:\\andrz\\Downloads\\wood_texture.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGB, GL_UNSIGNED_BYTE);
+    // Rotating Torus
+    std::vector<float> torusVerts;
+    std::vector<unsigned int> torusInds;
+    auto [torus, torusVAO] = SetupTorus(torusVerts, torusInds);
+    
+    // Reflection matrix for mirror plane (plane z = -3).
+    glm::mat4 reflectionMatrix = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, -6)), glm::vec3(1, 1, -1));
+
+    // Camera Setup 
+    Camera camera(width, height, glm::vec3(0.0f, 0.0f, 2.0f));
+    camera.target = glm::vec3(0.0f);
+
+    glEnable(GL_DEPTH_TEST);
+
+    // Main Render Loop 
+    while (!glfwWindowShouldClose(window))
+    {
+        float time = glfwGetTime();
+
+        // Toggle specular model
+        if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS)
+        {
+            useBlinn = !useBlinn;
+        }
+
+        // --- Update Camera & Input ---
+        camera.HandleModes(window);
+        camera.Inputs(window);
+        camera.updateMatrix(45.0f, 0.1f, 100.0f);
+
+        // Clear buffers.
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        // Update cube position and spotlight.
+        glm::vec3 cubePos(sinf(time) * 3.0f, 0.5f, 1.0f);
+        camera.attachedObject = &cubePos;
+        dirLight.color = glm::vec3(1.0f, 1.0f, std::max(sin(time / 10), 0.0f));
+        dirLight.setUniforms(shaderProgram, "dirLight");
+        fixedLight.setUniforms(shaderProgram, "fixedLight");
+        shaderProgram.setVec3("spotLight.position", spotLight.position);
+        HandleSpotlightChange(window, spotLight);
+
+        // --- Render Main Scene ---
+        shaderProgram.Activate();
+        shaderProgram.setBool("useBlinn", useBlinn);
+        SetFogUniforms(shaderProgram, time, camera, spotLight);
+
+        // Draw Pyramid.
+        glm::mat4 pyramidModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+        pyramid.SetTexture(brickTex);
+        pyramid.Draw(glm::vec3(0.0f), shaderProgram, sizeof(pyramidIndices) / sizeof(GLuint));
+
+        // Draw Cube.
+        glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), cubePos);
+        cube.Draw(cubePos, shaderProgram, 0, 36);
+
+        // Update spotlight attached to cube.
+        glm::vec3 localOffset(0.2f, 0.2f, 0.0f);
+        glm::vec3 spotlightWorldPos = glm::vec3(cubeModel * glm::vec4(localOffset, 1.0f));
+        spotLight.position = spotlightWorldPos;
+        spotLight.setUniforms(shaderProgram, "spotLight");
+        shaderProgram.setVec3("spotLight.position", spotLight.position);
+        shaderProgram.setVec3("spotLight.direction", spotLight.direction);
+
+        // Draw Rotating Sphere.
+        glm::mat4 sphereModel = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 1.0f, 0.0f)),
+            time, glm::vec3(0.0f, 1.0f, 0.0f));
+        shaderProgram.setMatrix4("model", sphereModel);
+        sphereTex.Bind();
+        sphereVAO.Bind();
+        glDrawElements(GL_TRIANGLES, sphereInds.size(), GL_UNSIGNED_INT, 0);
+
+        // Draw Floor.
+        glm::mat4 floorModel = glm::mat4(1.0f);
+        floor.SetTexture(floorTex);
+        floor.Draw(glm::vec3(0.0f), shaderProgram, 6);
+
+        // Render Light Cube
+        glm::vec3 lightCubePos(3.5f, 1.5f, 5.5f);
+        glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), lightCubePos);
+        shaderProgram.setMatrix4("model", lightModel);
+        shaderProgram.setMatrix4("camMatrix", camera.cameraMatrix);
+        shaderProgram.setVec4("lightColor", glm::vec4(1.0f));
+        lightVAO.Bind();
+        glDrawElements(GL_TRIANGLES, sizeof(lightIndices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
+
+        // Render torus
+        glm::mat4 torusModel = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.5f, -2.0f));
+        torusModel = glm::rotate(torusModel, time, glm::vec3(0.0f, 1.0f, 0.0f));
+        shaderProgram.setMatrix4("model", torusModel);
+        torusVAO.Bind();
+        torrusTex.Bind();
+        glDrawElements(GL_TRIANGLES, torusInds.size(), GL_UNSIGNED_INT, 0);
+
+        // Render Mirror Reflection
+        // Reflection texture
+        glBindFramebuffer(GL_FRAMEBUFFER, reflectionFBO);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glm::mat4 reflectionViewMatrix = camera.viewMatrix * reflectionMatrix;
+        shaderProgram.setMatrix4("view", reflectionViewMatrix);
+        shaderProgram.setMatrix4("projection", camera.projectionMatrix);
+        brickTex.Bind();
+        pyramidVAO.Bind();
+        glDrawElements(GL_TRIANGLES, sizeof(pyramidIndices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
+        cubeVAO.Bind();
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Mark mirror area in stencil buffer.
+        glEnable(GL_STENCIL_TEST);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        glDepthMask(GL_FALSE);
+        shaderProgram.Activate();
+        glm::mat4 mirrorModel = glm::mat4(1.0f);
+        shaderProgram.setMatrix4("model", mirrorModel);
+        mirrorVAO.Bind();
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glDepthMask(GL_TRUE);
+
+        // Render reflection only in mirror region
+        glStencilFunc(GL_EQUAL, 1, 0xFF);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+        shaderProgram.Activate();
+        shaderProgram.setMatrix4("view", camera.viewMatrix * reflectionMatrix);
+        glm::vec3 reflectedCameraPos(camera.Position.x, camera.Position.y, -camera.Position.z - 6);
+        shaderProgram.setVec3("cameraPos", reflectedCameraPos);
+
+        // Render reflected Pyramid
+        pyramidModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
+        pyramidModel = reflectionMatrix * pyramidModel;
+        mirrorShader.setMatrix4("model", pyramidModel);
+        brickTex.Bind();
+        pyramidVAO.Bind();
+        glDrawElements(GL_TRIANGLES, sizeof(pyramidIndices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
+
+        // Render reflected Cube
+        cube.Draw(cubePos, shaderProgram, 0, 36);
+
+        // Render reflected Sphere
+        sphereModel = glm::rotate(glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 1.0f, 0.0f)),
+            time, glm::vec3(0.0f, 1.0f, 0.0f));
+        shaderProgram.setMatrix4("model", sphereModel);
+        sphereVAO.Bind();
+        sphereTex.Bind();
+        glDrawElements(GL_TRIANGLES, sphereInds.size(), GL_UNSIGNED_INT, 0);
+
+        // Render reflected Torus
+        torusModel = glm::rotate(
+            glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.5f, -2.0f)),
+            time, glm::vec3(0.0f, 1.0f, 0.0f)
+        );
+        shaderProgram.setMatrix4("model", torusModel);
+        torusVAO.Bind();
+        torrusTex.Bind();
+        glDrawElements(GL_TRIANGLES, torusInds.size(), GL_UNSIGNED_INT, 0);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDisable(GL_STENCIL_TEST);
+
+        // Draw the mirror surface with reflection texture.
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        mirrorShader.Activate();
+        mirrorShader.setMatrix4("view", camera.viewMatrix);
+        mirrorShader.setMatrix4("projection", camera.projectionMatrix);
+        mirrorShader.setMatrix4("model", mirrorModel);
+        mirrorShader.setVec4("mirrorColor", glm::vec4(1.0f, 1.0f, 1.0f, 0.3f));
+        mirrorShader.setInt("reflectionTexture", 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, reflectionTexture);
+        mirrorVAO.Bind();
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glDisable(GL_BLEND);
+
+        // Swap buffers and poll events.
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    Cleanup(pyramid, cube, floor, sphere, lightCube,
+        brickTex, sphereTex, floorTex,
+        shaderProgram, lightShader, mirrorShader, window);
+    return 0;
+}
+
+void Cleanup(Object& pyramid, Object& cube, Object& floor, Object& sphere, Object& lightCube,
+    Texture& brickTex, Texture& sphereTex, Texture& floorTex,
+    Shader& shaderProgram, Shader& lightShader, Shader& mirrorShader, GLFWwindow* window)
+{
+    // Delete objects and textures.
+    pyramid.Delete();
+    cube.Delete();
+    floor.Delete();
+    sphere.Delete();
+    lightCube.Delete();
+    brickTex.Delete();
+    floorTex.Delete();
+    sphereTex.Delete();
+    shaderProgram.Delete();
+    lightShader.Delete();
+    mirrorShader.Delete();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+}
+
+void generateSphere(float radius, unsigned int sectorCount, unsigned int stackCount,
+    std::vector<float>& vertices, std::vector<unsigned int>& indices)
+{
+    vertices.clear();
+    indices.clear();
+    float lengthInv = 1.0f / radius;
+    float sectorStep = 2 * glm::pi<float>() / sectorCount;
+    float stackStep = glm::pi<float>() / stackCount;
+
+    // Generate vertices.
+    for (unsigned int i = 0; i <= stackCount; ++i)
+    {
+        float stackAngle = glm::pi<float>() / 2 - i * stackStep;
+        float xy = radius * cosf(stackAngle);
+        float z = radius * sinf(stackAngle);
+
+        for (unsigned int j = 0; j <= sectorCount; ++j)
+        {
+            float sectorAngle = j * sectorStep;
+            float x = xy * cosf(sectorAngle);
+            float y = xy * sinf(sectorAngle);
+            float s = (float)j / sectorCount;
+            float t = (float)i / stackCount;
+            
+            // Position
+            vertices.push_back(x);
+            vertices.push_back(y);
+            vertices.push_back(z);
+            
+            // Color (white)
+            vertices.push_back(1.0f);
+            vertices.push_back(1.0f);
+            vertices.push_back(1.0f);
+
+            // Texture coordinates
+            vertices.push_back(s);
+            vertices.push_back(t);
+            
+            // Normal
+            vertices.push_back(x * lengthInv);
+            vertices.push_back(y * lengthInv);
+            vertices.push_back(z * lengthInv);
+        }
+    }
+
+    // Generate indices.
+    unsigned int k1, k2;
+    for (unsigned int i = 0; i < stackCount; ++i)
+    {
+        k1 = i * (sectorCount + 1);
+        k2 = k1 + sectorCount + 1;
+        for (unsigned int j = 0; j < sectorCount; ++j, ++k1, ++k2)
+        {
+            if (i != 0)
+            {
+                indices.push_back(k1);
+                indices.push_back(k2);
+                indices.push_back(k1 + 1);
+            }
+            if (i != (stackCount - 1))
+            {
+                indices.push_back(k1 + 1);
+                indices.push_back(k2);
+                indices.push_back(k2 + 1);
+            }
+        }
+    }
+}
+
+void HandleSpotlightChange(GLFWwindow* window, LightSource& spotLight)
+{
+    float angleDelta = 0.02f;
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        spotLight.direction = glm::rotateY(spotLight.direction, angleDelta);
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        spotLight.direction = glm::rotateY(spotLight.direction, -angleDelta);
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+    {
+        glm::vec3 right = glm::normalize(glm::cross(spotLight.direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+        spotLight.direction = glm::rotate(spotLight.direction, angleDelta, right);
+    }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+    {
+        glm::vec3 right = glm::normalize(glm::cross(spotLight.direction, glm::vec3(0.0f, 1.0f, 0.0f)));
+        spotLight.direction = glm::rotate(spotLight.direction, -angleDelta, right);
+    }
+    spotLight.direction = glm::normalize(spotLight.direction);
+}
+
+std::tuple<Texture, Texture, Texture, Texture> SetupTextures(Shader& shaderProgram)
+{
+    Texture brickTex("brick.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGBA, GL_UNSIGNED_BYTE);
+    brickTex.texUnit(shaderProgram, "tex0", 0);
+    Texture floorTex("wood_texture.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGB, GL_UNSIGNED_BYTE);
     floorTex.texUnit(shaderProgram, "tex0", 0);
-
-    Texture sphereTex("D:\\andrz\\Downloads\\shrek.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGB, GL_UNSIGNED_BYTE);
+    Texture sphereTex("brick.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGB, GL_UNSIGNED_BYTE);
     sphereTex.texUnit(shaderProgram, "tex0", 0);
+    Texture torrusTex("torrus.png", GL_TEXTURE_2D, GL_TEXTURE0, GL_RGB, GL_UNSIGNED_BYTE);
+    torrusTex.texUnit(shaderProgram, "tex0", 0);
 
-    // --- Set Up Lights --- //
-    // (Light uniforms would be set in the main shader if lighting calculations were performed.)
+    return { brickTex, floorTex, sphereTex, torrusTex };
+}
+
+std::tuple<LightSource, LightSource, LightSource> SetupLightSources(Shader& shaderProgram)
+{
     LightSource fixedLight(POINT_LIGHT, glm::vec3(0.5f, 0.5f, 6.5f), glm::vec3(1.0f, 0.3f, 0.3f));
     LightSource spotLight(SPOT_LIGHT, glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(1.0f, 1.0f, 0.8f));
     LightSource dirLight(DIRECTIONAL_LIGHT, glm::vec3(5.0f, 5.0f, 5.0f), glm::vec3(1.0f, 1.0f, 0.0f));
@@ -371,286 +559,235 @@ int main()
     shaderProgram.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(17.5f)));
     shaderProgram.setVec3("dirLight.direction", dirLight.direction);
     shaderProgram.setVec3("dirLight.color", dirLight.color);
-    shaderProgram.setFloat("fixedLight.cutOff", 0.0f);   
-    shaderProgram.setFloat("dirLight.cutOff", 0.0f);     
+    shaderProgram.setFloat("fixedLight.cutOff", 0.0f);
+    shaderProgram.setFloat("dirLight.cutOff", 0.0f);
+    return { fixedLight, spotLight, dirLight };
+}
 
-    // Create a texture for storing the reflection
+void SetFogUniforms(Shader& shaderProgram, float time, Camera camera, LightSource spotLight)
+{
+    shaderProgram.setVec3("fogColor", glm::vec3(
+        0.5f + 0.5f * cos(time / 10),
+        0.5f + 0.5f * cos(time / 10),
+        0.5f + 0.5f * cos(time / 10)));
+    shaderProgram.setFloat("fogStart", -4.0f);
+    shaderProgram.setFloat("fogEnd", 1.0f + 20 * cos(time));
+    shaderProgram.setVec3("cameraPos", camera.Position);
+    shaderProgram.setVec3("spotLight.direction", spotLight.direction);
+    shaderProgram.setMatrix4("view", camera.viewMatrix);
+    shaderProgram.setMatrix4("projection", camera.projectionMatrix);
+}
+
+template <size_t VSize, size_t ISize>
+std::tuple<Object, VAO> SetupObject(GLfloat(&vertices)[VSize], GLuint(&indices)[ISize])
+{
+    VAO vao;
+    vao.Bind();
+    VBO vbo(vertices, VSize * sizeof(GLfloat));
+    EBO ebo(indices, ISize * sizeof(GLuint));
+    Object obj(vao, vbo);
+
+    obj.LinkAttributes();
+    obj.SetEBO(ebo);
+    obj.Unbind();
+
+    return { obj, vao };
+}
+
+
+template <size_t VSize>
+std::tuple<Object, VAO> SetupObject(GLfloat(&vertices)[VSize])
+{
+    VAO vao; 
+    vao.Bind();
+    VBO vbo(vertices, sizeof(vertices));
+    Object obj(vao, vbo);
+    obj.LinkAttributes();
+    obj.Unbind();
+
+    return { obj, vao };
+}
+
+
+std::tuple<Object, VAO> SetupSphere(std::vector<float>& sphereVerts, std::vector<unsigned int>& sphereInds)
+{
+    generateSphere(0.5f, 36, 18, sphereVerts, sphereInds);
+    VAO sphereVAO; sphereVAO.Bind();
+    VBO sphereVBO(sphereVerts.data(), sphereVerts.size() * sizeof(float));
+    EBO sphereEBO(sphereInds.data(), sphereInds.size() * sizeof(unsigned int));
+    Object sphere(sphereVAO, sphereVBO);
+    sphere.LinkAttributes();
+    sphere.Unbind();
+    return { sphere, sphereVAO };
+}
+
+std::tuple<GLuint, GLuint> SetupMirrorTexture()
+{
     GLuint reflectionTexture;
     glGenTextures(1, &reflectionTexture);
     glBindTexture(GL_TEXTURE_2D, reflectionTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    // Create a framebuffer to render to the reflection texture
-    // Compute a reflection matrix for the mirror plane (here: plane z = -3).
-    glm::mat4 reflectionMatrix = glm::scale(glm::translate(
-        glm::mat4(1.0f),
-        glm::vec3(0, 0, -6)),
-        glm::vec3(1, 1, -1)
-    );
+    // Reflection framebuffer.
     GLuint reflectionFBO;
     glGenFramebuffers(1, &reflectionFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, reflectionFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, reflectionTexture, 0);
-
-    // Check if framebuffer is correctly set up
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer is not complete!" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    
+    return { reflectionTexture, reflectionFBO };
+}
 
-    // --- Set Up Transformations --- //
-    glm::vec3 pyramidPos = glm::vec3(0.0f);  // Pyramid centered at origin
+std::tuple<
+    std::list<std::tuple<Object, VAO>>, 
+    std::list<LightSource>, 
+    std::list<Texture>,
+    GLuint, GLuint
+> Setup(Shader& shaderProgram)
+{
+    std::list<std::tuple<Object,VAO>> ans = {};
+    std::list<Texture> texs = {};
+    std::list<LightSource> sources = {};
 
-    // --- Camera Setup --- //
-    Camera camera(width, height, glm::vec3(0.0f, 0.0f, 2.0f));
-    camera.target = glm::vec3(0.0f); // For third-person/orbital modes
+    // --- Set Up Geometry Objects ---
+    // Pyramid
+    auto [pyramid, pyramidVAO] = SetupObject(pyramidVertices, pyramidIndices);
+    ans.push_back({ pyramid, pyramidVAO });
 
-    glEnable(GL_DEPTH_TEST);
+    // Moving Cube
+    auto [cube, cubeVAO] = SetupObject(cubeVertices);
+    ans.push_back({ cube, cubeVAO });
 
-    // ---------------------------------------------------------------------------
-    // Main Render Loop
-    while (!glfwWindowShouldClose(window))
+    // Floor
+    auto [floor, floorVAO] = SetupObject(floorVertices, floorIndices);
+    ans.push_back({ floor, floorVAO });
+
+    // Rotating Sphere
+    std::vector<float> sphereVerts;
+    std::vector<unsigned int> sphereInds;
+    auto [sphere, sphereVAO] = SetupSphere(sphereVerts, sphereInds);
+    ans.push_back({ sphere, sphereVAO });
+
+    // Light Cube
+    auto [lightCube, lightVAO] = SetupObject(lightVertices, lightIndices);
+    ans.push_back({ lightCube, lightVAO });
+
+    // Mirror
+    auto [mirror, mirrorVAO] = SetupObject(mirrorVertices, mirrorIndices);
+    ans.push_back({ mirror, mirrorVAO });
+
+    // --- Set Up Textures ---
+    auto [brickTex, floorTex, sphereTex, torusTex] = SetupTextures(shaderProgram);
+    texs.push_back(brickTex);
+    texs.push_back(floorTex);
+    texs.push_back(sphereTex);
+
+    // --- Set Up Lights ---
+    auto [fixedLight, spotLight, dirLight] = SetupLightSources(shaderProgram);
+    sources.push_back(fixedLight);
+    sources.push_back(spotLight);
+    sources.push_back(dirLight);
+
+    // Create a texture and framebuffer for mirror reflection.
+    auto [reflectionTexture, reflectionFBO] = SetupMirrorTexture();
+    return { ans, sources, texs, reflectionTexture, reflectionFBO };
+}
+
+void generateTorus(float innerRadius, float outerRadius, unsigned int nsides, unsigned int nrings,
+    std::vector<float>& vertices, std::vector<unsigned int>& indices)
+{
+    vertices.clear();
+    indices.clear();
+
+    float ringFactor = 2.0f * glm::pi<float>() / nrings;
+    float sideFactor = 2.0f * glm::pi<float>() / nsides;
+    float offsetY = 0.5f;  
+
+    // Generate vertices.
+    for (unsigned int ring = 0; ring <= nrings; ++ring)
     {
-        float time = glfwGetTime();
-
-        // --- Update Input & Camera ---
-        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
-            camera.mode = FIRST_PERSON;
-        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
-            camera.mode = THIRD_PERSON;
-        if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
-            camera.mode = ORBITAL;
-
-        // Clear the color, depth, and stencil buffers.
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        // Update camera input and compute matrices.
-        camera.Inputs(window);
-        camera.updateMatrix(45.0f, 0.1f, 100.0f);
-
-        // --- Update Moving Object (Cube) and Spotlight ---
-        glm::vec3 cubePos = glm::vec3(sinf(glfwGetTime()) * 3.0f, 0.5f, 1.0f);
-        camera.attachedObject = &cubePos;
-
-        dirLight.color = glm::vec3(1.0f, 1.0f, 0.0f + sin(time / 10));
-        dirLight.setUniforms(shaderProgram, "dirLight");
-        fixedLight.setUniforms(shaderProgram, "fixedLight");
-        shaderProgram.setVec3("spotLight.position", spotLight.position);
-        
-        float angleDelta = 0.02f;
-
-        // Handle spotlight direction change
-        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        float u = ring * ringFactor;
+        float cosU = cos(u);
+        float sinU = sin(u);
+        for (unsigned int side = 0; side <= nsides; ++side)
         {
-            spotLight.direction = glm::rotateY(spotLight.direction, angleDelta);
+            float v = side * sideFactor;
+            float cosV = cos(v);
+            float sinV = sin(v);
+
+            // The distance from the center of the torus tube to the current point.
+            float r = outerRadius + innerRadius * cosV;
+            float x = r * cosU;
+            float y = r * sinU + offsetY;  // add the offset here
+            float z = innerRadius * sinV;
+
+            // Position.
+            vertices.push_back(x);
+            vertices.push_back(y);
+            vertices.push_back(z);
+
+            // Color (choose a pleasant light blue color).
+            vertices.push_back(0.3f);
+            vertices.push_back(0.7f);
+            vertices.push_back(0.9f);
+
+            // Texture coordinates.
+            vertices.push_back((float)ring / nrings);
+            vertices.push_back((float)side / nsides);
+
+            // Compute normal.
+            // The center of the tube for this ring is at (outerRadius*cosU, outerRadius*sinU, 0), then add the same offset.
+            float cx = outerRadius * cosU;
+            float cy = outerRadius * sinU + offsetY;
+            float cz = 0.0f;
+            glm::vec3 normal = glm::normalize(glm::vec3(x - cx, y - cy, z - cz));
+            vertices.push_back(normal.x);
+            vertices.push_back(normal.y);
+            vertices.push_back(normal.z);
         }
-        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-        {
-            spotLight.direction = glm::rotateY(spotLight.direction, -angleDelta);
-        }
-        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        {
-            glm::vec3 right = glm::vec3(0.0f, 1.0f, 0.0f);
-            right = glm::normalize(glm::cross(spotLight.direction, right));
-            spotLight.direction = glm::rotate(spotLight.direction, angleDelta, right);
-        }
-        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        {
-            glm::vec3 right = glm::vec3(0.0f, 1.0f, 0.0f);
-            right = glm::normalize(glm::cross(spotLight.direction, right));
-            spotLight.direction = glm::rotate(spotLight.direction, -angleDelta, right);
-        }
-
-        spotLight.direction = glm::normalize(spotLight.direction);
-
-        // --- Render the Main Scene (Pyramid, Cube, Sphere, Floor) ---
-        shaderProgram.Activate();
-        
-        // Set fog uniforms 
-        shaderProgram.setVec3("fogColor", glm::vec3(
-            0.5f + 0.5f * cos(time / 10),
-            0.5f + 0.5f * cos(time / 10),
-            0.5f + 0.5f * cos(time / 10)));
-        shaderProgram.setFloat("fogStart", -4.0f);
-        shaderProgram.setFloat("fogEnd", 1.0f + 20 * cos(time));
-        shaderProgram.setVec3("cameraPos", camera.Position);
-        shaderProgram.setVec3("spotLight.direction", spotLight.direction);
-        shaderProgram.setMatrix4("view", camera.viewMatrix);
-        shaderProgram.setMatrix4("projection", camera.projectionMatrix);
-        
-        // Draw Pyramid.
-        glm::mat4 pyramidModel = glm::mat4(1.0f);
-        pyramidModel = glm::translate(pyramidModel, pyramidPos);
-        shaderProgram.setMatrix4("model", pyramidModel);
-        brickTex.Bind();
-        pyramidVAO.Bind();
-        glDrawElements(GL_TRIANGLES, sizeof(pyramidIndices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
-        
-        // Draw Moving Cube.
-        glm::mat4 cubeModel = glm::mat4(1.0f);
-        cubeModel = glm::translate(cubeModel, cubePos);
-        shaderProgram.setMatrix4("model", cubeModel);
-        cubeVAO.Bind();
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-        // Attach spotlight to the cube
-        glm::vec3 localOffset(0.2f, 0.2f, 0.0f); 
-        glm::vec3 spotlightWorldPos = glm::vec3(cubeModel * glm::vec4(localOffset, 1.0f));
-        spotLight.position = spotlightWorldPos;
-        spotLight.setUniforms(shaderProgram, "spotLight");
-        shaderProgram.setVec3("spotLight.position", spotLight.position);
-        shaderProgram.setVec3("spotLight.direction", spotLight.direction);
-        
-        // Draw Rotating Sphere.
-        glm::mat4 sphereModel = glm::mat4(1.0f);
-        sphereModel = glm::translate(sphereModel, glm::vec3(2.0f, 1.0f, 0.0f));
-        sphereModel = glm::rotate(sphereModel, time, glm::vec3(0.0f, 1.0f, 0.0f));
-        shaderProgram.setMatrix4("model", sphereModel);
-        sphereTex.Bind();
-        sphereVAO.Bind();
-        glDrawElements(GL_TRIANGLES, sphereInds.size(), GL_UNSIGNED_INT, 0);
-        
-        // Draw Floor.
-        glm::mat4 floorModel = glm::mat4(1.0f);
-        shaderProgram.setMatrix4("model", floorModel);
-        floorTex.Bind();
-        floorVAO.Bind();
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        
-
-        // --- Render the Light Cube ---
-        glm::vec3 lightCubePos = glm::vec3(3.5f, 1.5f, 5.5f);
-        glm::mat4 lightModel = glm::mat4(1.0f);
-        lightModel = glm::translate(lightModel, lightCubePos);
-        shaderProgram.setMatrix4("model", lightModel);
-        // Assume "camMatrix" uniform is handled by camera.Matrix() if needed.
-        shaderProgram.setMatrix4("camMatrix", camera.cameraMatrix);
-        shaderProgram.setVec4("lightColor", glm::vec4(1.0f));
-        lightVAO.Bind();
-        glDrawElements(GL_TRIANGLES, sizeof(lightIndices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
-        
-
-        // --- Render Mirror Reflection Using the Stencil Buffer ---
-
-        // Render the scene to the reflection texture
-        glBindFramebuffer(GL_FRAMEBUFFER, reflectionFBO);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // Set up the reflection camera view (adjust the view matrix for reflection)
-        glm::mat4 reflectionViewMatrix = camera.viewMatrix * reflectionMatrix;
-        shaderProgram.setMatrix4("view", reflectionViewMatrix);
-        shaderProgram.setMatrix4("projection", camera.projectionMatrix);
-
-        // Render all objects in the scene (the objects that should be reflected)
-        brickTex.Bind();
-        pyramidVAO.Bind();
-        glDrawElements(GL_TRIANGLES, sizeof(pyramidIndices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
-        cubeVAO.Bind();
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-
-        // Unbind the framebuffer after rendering the scene
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // Render the mirror shape into the stencil buffer only.
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF); 
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); 
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); 
-        glDepthMask(GL_FALSE); 
-
-        // Draw the mirror quad to mark its area in the stencil buffer.
-        shaderProgram.Activate();
-        glm::mat4 mirrorModel = glm::mat4(1.0f);
-        shaderProgram.setMatrix4("model", mirrorModel);
-        mirrorVAO.Bind();
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-        // Restore color and depth buffer writing.
-        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        glDepthMask(GL_TRUE);
-
-        // Render the reflected scene only in the mirror region.
-        glStencilFunc(GL_EQUAL, 1, 0xFF); 
-        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
-        // Use shaderProgram for the reflected scene.
-        shaderProgram.Activate();
-        shaderProgram.setMatrix4("view", camera.viewMatrix * reflectionMatrix);
-        glm::vec3 reflectedCameraPos = glm::vec3(camera.Position.x, camera.Position.y, -camera.Position.z - 6);
-        shaderProgram.setVec3("cameraPos", reflectedCameraPos);
-
-        // Render the pyramid again with the reflection transformation.
-        pyramidModel = glm::mat4(1.0f);
-        pyramidModel = glm::translate(pyramidModel, pyramidPos);
-        pyramidModel = reflectionMatrix * pyramidModel;
-        mirrorShader.setMatrix4("model", pyramidModel);
-        brickTex.Bind();
-        pyramidVAO.Bind();
-        glDrawElements(GL_TRIANGLES, sizeof(pyramidIndices) / sizeof(GLuint), GL_UNSIGNED_INT, 0);
-        
-        // The same goes for other objects
-        cubeModel = glm::mat4(1.0f);
-        cubeModel = glm::translate(cubeModel, cubePos);
-        shaderProgram.setMatrix4("model", cubeModel); 
-        cubeVAO.Bind();
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        
-        
-        sphereModel = glm::mat4(1.0f);
-        sphereModel = glm::translate(sphereModel, glm::vec3(2.0f, 1.0f, 0.0f));
-        sphereModel = glm::rotate(sphereModel, time, glm::vec3(0.0f, 1.0f, 0.0f));
-        shaderProgram.setMatrix4("model", sphereModel); 
-        sphereVAO.Bind();
-        sphereTex.Bind();
-        glDrawElements(GL_TRIANGLES, sphereInds.size(), GL_UNSIGNED_INT, 0);
-        
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // Disable stencil testing after reflection.
-        glDisable(GL_STENCIL_TEST);
-
-        // Draw the mirror surface normally.
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        mirrorShader.Activate();
-        mirrorShader.setMatrix4("view", camera.viewMatrix);
-        mirrorShader.setMatrix4("projection", camera.projectionMatrix);
-        mirrorShader.setMatrix4("model", mirrorModel);
-        mirrorShader.setVec4("mirrorColor", glm::vec4(1.0f, 1.0f, 1.0f, 0.3f)); // Semi-transparent mirror
-
-        // Set the reflection texture in the shader
-        mirrorShader.setInt("reflectionTexture", 0); 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, reflectionTexture);
-
-        // Draw the mirror surface
-        mirrorVAO.Bind();
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glDisable(GL_BLEND);
-
-        // Swap buffers and poll events.
-        glfwSwapBuffers(window);
-        glfwPollEvents();
     }
 
-    // --- Cleanup ---
-    pyramid.Delete();
-    cube.Delete();
-    cube.Delete();
-    floor.Delete();
-    sphere.Delete();
-    brickTex.Delete();
-    floorTex.Delete();
-    shaderProgram.Delete();
-    lightCube.Delete();
-    lightShader.Delete();
+    // Generate indices.
+    for (unsigned int ring = 0; ring < nrings; ++ring)
+    {
+        unsigned int ringStart = ring * (nsides + 1);
+        unsigned int nextRingStart = (ring + 1) * (nsides + 1);
+        for (unsigned int side = 0; side < nsides; ++side)
+        {
+            unsigned int current = ringStart + side;
+            unsigned int next = ringStart + side + 1;
+            unsigned int currentNextRing = nextRingStart + side;
+            unsigned int nextNextRing = nextRingStart + side + 1;
+            // Two triangles per quad.
+            indices.push_back(current);
+            indices.push_back(currentNextRing);
+            indices.push_back(next);
 
-    glfwDestroyWindow(window);
-    glfwTerminate();
-    return 0;
+            indices.push_back(next);
+            indices.push_back(currentNextRing);
+            indices.push_back(nextNextRing);
+        }
+    }
 }
+
+
+std::tuple<Object, VAO> SetupTorus(std::vector<float>& torusVerts, std::vector<unsigned int>& torusInds)
+{
+    generateTorus(0.2f, 0.5f, 24, 24, torusVerts, torusInds);
+    VAO torusVAO;
+    torusVAO.Bind();
+    VBO torusVBO(torusVerts.data(), torusVerts.size() * sizeof(float));
+    EBO torusEBO(torusInds.data(), torusInds.size() * sizeof(unsigned int));
+    Object torus(torusVAO, torusVBO);
+    torus.LinkAttributes();
+    torus.SetEBO(torusEBO);
+    torus.Unbind();
+    return { torus, torusVAO };
+}
+

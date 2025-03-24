@@ -3,13 +3,14 @@
 #include "VAO.h"
 #include "VBO.h"
 #include "EBO.h"
+#include "Texture.h"
 
 class Object {
 public:
     VAO ObjectVAO;
     VBO ObjectVBO;
     std::optional<EBO> ObjectEBO;
-
+    Texture ObjTexture;
 
     void LinkAttributes() {
         // Position attribute
@@ -27,6 +28,7 @@ public:
 
     Object(VAO& vao, VBO& vbo, EBO& ebo)
         : ObjectVAO(vao), ObjectVBO(vbo), ObjectEBO(ebo) {}
+    
     void SetEBO(EBO& ebo)
     {
         ObjectEBO = ebo;
@@ -42,6 +44,10 @@ public:
         }
     }
 
+    void SetTexture(Texture& texture)
+    {
+        ObjTexture = texture;
+    }
 
     void Unbind()
     {
@@ -61,5 +67,23 @@ public:
         {
             ObjectEBO.value().Delete();
         }
+    }
+    void Draw(glm::vec3 pos, Shader& shader, GLuint indicesCount)
+    {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, pos);
+        shader.setMatrix4("model", model);
+        ObjTexture.Bind();
+        ObjectVAO.Bind();
+        glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, 0);
+    }
+
+    void Draw(glm::vec3 pos, Shader& shader, GLint first, GLsizei count)
+    {
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, pos);
+        shader.setMatrix4("model", model);
+        ObjectVAO.Bind();
+        glDrawArrays(GL_TRIANGLES, first, count);
     }
 };

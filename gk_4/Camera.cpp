@@ -88,3 +88,13 @@ void Camera::Inputs(GLFWwindow* window)
         Orientation = glm::normalize(target - Position);
     }
 }
+
+void Camera::HandleModes(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+        mode = FIRST_PERSON;
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+        mode = THIRD_PERSON;
+    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+        mode = ORBITAL;
+}

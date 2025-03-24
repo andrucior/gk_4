@@ -10,6 +10,7 @@ out vec4 FragColor;
 uniform sampler2D tex0;
 uniform vec3 camPos;
 uniform vec3 fogColor;
+uniform bool useBlinn; 
 
 // Light structure definition.
 struct Light {
@@ -25,7 +26,7 @@ uniform Light fixedLight;
 uniform Light spotLight;
 uniform Light dirLight;
 
-// Function to calculate lighting (Phong model example).
+// Function to calculate lighting using either Phong or Blinn-Phong for specular highlights.
 vec3 calculateLighting(Light light, vec3 normal, vec3 viewDir)
 {
     vec3 lightDir;
@@ -53,12 +54,25 @@ vec3 calculateLighting(Light light, vec3 normal, vec3 viewDir)
         attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * (distance * distance));
     }
 
-    // Diffuse
+    // Diffuse component.
     float diff = max(dot(normal, lightDir), 0.0);
-    // Specular
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-    // Combine
+    
+    // Specular component: choose between Phong and Blinn-Phong.
+    float spec = 0.0;
+    if (useBlinn) 
+    {
+        // Blinn-Phong: compute halfway vector.
+        vec3 halfwayDir = normalize(lightDir + viewDir);
+        spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+    } 
+    else 
+    {
+        // Phong: use reflection vector.
+        vec3 reflectDir = reflect(-lightDir, normal);
+        spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    }
+    
+    // Combine ambient, diffuse, and specular.
     vec3 ambient = light.color * 0.2;
     vec3 diffuse = light.color * diff;
     vec3 specular = light.color * spec * 0.5;
@@ -71,12 +85,12 @@ void main()
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(camPos - FragPos);
 
-    // Sum the lighting contributions.
+    // Sum the lighting contributions from each light source.
     vec3 lighting = calculateLighting(fixedLight, norm, viewDir) +
                     calculateLighting(spotLight, norm, viewDir) +
                     calculateLighting(dirLight, norm, viewDir);
                     
-    // Apply texture and multiply by lighting.
+    // Apply texture and modulate with lighting.
     vec4 objectColor = texture(tex0, TexCoords) * vec4(lighting, 1.0);
     
     // Mix the object color with the fog color.

@@ -7,6 +7,10 @@
 
 #include "Shader.h"
 
+// Directional light: sunlight
+// Point: lightbulb
+// Spotlight: flashlight
+
 enum LightType { POINT_LIGHT, SPOT_LIGHT, DIRECTIONAL_LIGHT };
 
 class LightSource

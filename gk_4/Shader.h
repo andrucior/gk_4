@@ -34,6 +34,7 @@ public:
 	void setMatrix4(const std::string& name, const glm::mat4& matrix);
 	void setVec4(const std::string& name, const glm::vec4& value);
 	void setInt(const std::string& name, int value);
+	void setBool(const std::string& name, bool value) const;
 
 private:
 	// Checks if the different Shaders have compiled properly
