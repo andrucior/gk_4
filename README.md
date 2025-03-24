@@ -1,5 +1,8 @@
 **OpenGL Scene Rendering Project**
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/6ccba317-f3e2-4e4a-805b-f21bb9510e47" width="50%">
+</p>
 This project is an OpenGL-based graphics application that renders a 3D scene consisting of various objects, including spheres and cubes. 
 The rendering pipeline follows a programmable approach, utilizing custom shaders for vertex and fragment processing. The project implements key graphical techniques 
 such as perspective projection, Phong shading, fog effects, day/night cycles, and light attenuation.
@@ -22,4 +25,4 @@ GLFW for window and input management.
 GLAD for OpenGL function loading.
 GLM for mathematical operations (vector and matrix transformations).
 STB Image for texture loading.
-![opengl](https://github.com/user-attachments/assets/6ccba317-f3e2-4e4a-805b-f21bb9510e47)
+
